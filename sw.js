@@ -1,5 +1,5 @@
-// Guarda la app para que abra rápido y funcione sin internet.
-const CACHE = 'musiquita-dumps-v1';
+// Guarda la app para que abra sin internet. Con internet siempre baja la versión nueva primero.
+const CACHE = 'musiquita-dumps-v2';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
@@ -22,16 +22,18 @@ self.addEventListener('fetch', (e) => {
   const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
   if (!sameOrigin && !isFont) return;
 
+  const online = sameOrigin ? fetch(req.url, { cache: 'no-cache' }) : fetch(req);
   e.respondWith(
-    caches.match(req).then((hit) => {
-      const net = fetch(req).then((res) => {
+    online
+      .then((res) => {
         if (res && (res.ok || res.type === 'opaque')) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(req, copy));
         }
         return res;
-      }).catch(() => hit);
-      return hit || net;
-    })
+      })
+      .catch(() =>
+        caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('./') : null) || Response.error())
+      )
   );
 });
